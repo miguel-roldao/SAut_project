@@ -3,6 +3,7 @@
 
 This is the repository for our project
 
+The Team:
 Eufémio Marques
 Ivan Figueiredo
 Miguel Roldão
