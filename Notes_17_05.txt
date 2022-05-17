@@ -13,4 +13,29 @@ EKF represents anything that is stochastic (non-linear) by an average . Lineariz
 UKF Computationally heavier, better results. 
 Use multiple points to perform the estimations.
 
+-------------------
+
+Status Error
+
+"No transform from...."
+
+You need to perform a transformation between the frames of the sensors/robot and the "world"? 
+
+---------------
+
+Distribute the work between the elements of the group!!
+
+Aruco markers.
+
+8 markers, 2 per corner (2 orientations) ??? Probably 8 is not enough, and put them in the corners is possibly not the best choice??
+
+Cameras are cheaper
+
+-----------------
+
+AMCL (Adaptative Monte Carlo) vs Regular MCL
+
+The AMCL reduce number of particles so that it is computationally lighter.
+
+
 
