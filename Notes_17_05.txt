@@ -1,0 +1,16 @@
+Kinematics: The specifications of the robot, how many wheels, how many motors, degrees of freedom, etc.
+
+Diferential wheels
+Always introduce referentials of the robot, the "world" and of the sensors.
+
+UKF vs EKF vs Particle Filters
+
+For Linear Robots KF (Kalman Filter) Is the Optimal Solution.
+
+EKF represents anything that is stochastic (non-linear) by an average . Linearize the system and performs Kalman Filter on non-linear problems
+
+
+UKF Computationally heavier, better results. 
+Use multiple points to perform the estimations.
+
+
