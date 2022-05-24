@@ -19,7 +19,7 @@ if __name__== '__main__':
     while not rospy.is_shutdown():
         #publish cmd vel
         msg=Twist()
-        msg.linear.x = 2.0
+        msg.linear.x = 1.0
         msg.angular.z = 0.5
         pub.publish(msg)
         print(msg)

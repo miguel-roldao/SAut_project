@@ -2,6 +2,7 @@ import math
 import rospy
 from geometry_msgs.msg import PoseWithCovariance
 from nav_msgs.msg import Odometry
+from tf.transformations import euler_from_quaternion
 
 
 
@@ -19,14 +20,18 @@ def belief_calculation_callback(msg_toreceive: Odometry):
         t_final=msg_toreceive.header.stamp
         delta_t=(t_final-t_inicial).to_sec()
 
-        positionx=velocity*delta_t*math.cos(theta)+positionx
-        positiony=velocity*delta_t*math.sin(theta)+positiony
+
+        positionx=velocity*delta_t*math.cos(theta+math.pi)+positionx
+        positiony=velocity*delta_t*math.sin(theta+math.pi)+positiony
+
 
         theta=(theta+angular_velocity*delta_t)
 
         msg_tosend.pose.position.x=positionx
         msg_tosend.pose.position.y=positiony
         msg_tosend.pose.orientation.z=math.cos(theta/2)
+        msg_tosend.pose.orientation.w=math.sin(-theta/2)
+        
         
         rospy.loginfo(msg_tosend)
         pub.publish(msg_tosend)
@@ -35,7 +40,6 @@ def belief_calculation_callback(msg_toreceive: Odometry):
         positionx=msg_toreceive.pose.pose.position.x
         positiony=msg_toreceive.pose.pose.position.y
         theta=math.acos(msg_toreceive.pose.pose.orientation.z)*2
-    
     
 
 if __name__== '__main__':
