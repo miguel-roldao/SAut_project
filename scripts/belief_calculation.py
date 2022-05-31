@@ -31,6 +31,10 @@ def belief_calculation_callback(msg_toreceive: Odometry):
         msg_tosend.pose.position.y=positiony
         msg_tosend.pose.orientation.z=math.cos(theta/2)
         msg_tosend.pose.orientation.w=math.sin(-theta/2)
+
+
+        #covariance 36 size
+        msg_tosend.covariance[0]=2
         
         
         rospy.loginfo(msg_tosend)
