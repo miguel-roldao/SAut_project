@@ -1,0 +1,6 @@
+RANSAC algorithm  Landmark extraction
+
+Hough Transform
+
+Odometry as predictions
+Laser readings as measurements
