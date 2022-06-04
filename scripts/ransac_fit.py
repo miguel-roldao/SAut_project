@@ -2,8 +2,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from sklearn import linear_model, datasets
 
-PATH_TO_CAT = "/home/miguel_roldao/catkin_ws"   # CHANGE THIS WHEN NEEDED!!!
-
 def fitar(X,Y):
     # Robustly fit linear model with RANSAC algorithm
     plt.scatter(X,Y,s=0.5)
@@ -19,7 +17,7 @@ def fitar(X,Y):
     line_y_ransac = ransac.predict(line_X)
 
     plt.plot(line_X,line_y_ransac,color="cornflowerblue",label="RANSAC regressor",)
-    plt.savefig(PATH_TO_CAT + "/scripts/imagens_mapa/Ransac")
+    plt.savefig("./imagens_mapa/Ransac")
     #plt.show()
 
     return line_X,line_y_ransac,inlier_mask,outlier_mask
