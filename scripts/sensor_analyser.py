@@ -6,6 +6,8 @@ from sensor_msgs.msg import LaserScan
 from ransac_fit import fitar
 import time
 
+PATH_TO_CAT = "/home/miguel_roldao/catkin_ws"   # CHANGE THIS WHEN NEEDED!!!
+
 def ransac_callback(msg_toreceive:LaserScan):
 
     global t0
@@ -28,8 +30,8 @@ def ransac_callback(msg_toreceive:LaserScan):
     if(time.time()-t0>2):
         ni=ni+1
         t0=time.time()
-        np.savetxt("/home/pedro/catkin_ws/scripts/coordinates/X" + str(ni) + ".txt", X)
-        np.savetxt("/home/pedro/catkin_ws/scripts/coordinates/Y" + str(ni) + ".txt", Y)
+        np.savetxt(PATH_TO_CAT + "/scripts/coordinates/X" + str(ni) + ".txt", X)
+        np.savetxt(PATH_TO_CAT + "/scripts/coordinates/Y" + str(ni) + ".txt", Y)
     
     #fitar(X,Y)
 

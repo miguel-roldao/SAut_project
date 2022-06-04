@@ -5,7 +5,7 @@ if __name__== '__main__':
     rospy.init_node("test_node")
 
     rospy.loginfo("Hello from test node")
-    rospy.logwarn("Thos is a warning")
+    rospy.logwarn("This is a warning")
     rospy.logerr("This is an error")
 
     #rospy.sleep(1.0)
