@@ -71,9 +71,10 @@ def belief_calculation_callback(msg_toreceive: Odometry):
         matriz_cov= termo1 + dfde.dot(dfde.transpose()).dot(Rt)
 
         #covariance 36 size but use like a 3x3
-        msg_tosend.covariance=matriz_cov
-
-        rospy.loginfo(np.linalg.det(matriz_cov))
+        #print(matriz_cov)
+        msg_tosend.covariance= np.concatenate( [matriz_cov.flatten(),np.zeros(27)])
+        
+        #rospy.loginfo(np.linalg.det(matriz_cov))
 
         #rospy.loginfo(np.linalg.det(np.array(msg_tosend.covariance).reshape((3,3))))
 
@@ -82,6 +83,7 @@ def belief_calculation_callback(msg_toreceive: Odometry):
         positiony=msg_toreceive.pose.pose.position.y
         yaw=yaw2
 
+        
         #rospy.loginfo(msg_tosend)
         pub.publish(msg_tosend)
     else:
@@ -106,11 +108,12 @@ if __name__== '__main__':
     rospy.init_node("Belief_calculation")
     rospy.loginfo("Hello from belief_calculation")
 
-    pub=rospy.Publisher("/p3dx/prediction_calculation", PoseWithCovariance,queue_size=10)
-
     #sub_pose=rospy.Subscriber("/pioneer/pose_belief", PoseWithCovariance)
         
     sub_odometry=rospy.Subscriber("/p3dx/odom", Odometry, callback = belief_calculation_callback)#callback means it call a function when it receives information
 
     sub_update=rospy.Subscriber("/p3dx/update",PoseWithCovariance,callback=store_update_callback)
+    
+    pub=rospy.Publisher("/p3dx/prediction_calculation", PoseWithCovariance,queue_size=10)
+
     rospy.spin()#keeps the node alive
