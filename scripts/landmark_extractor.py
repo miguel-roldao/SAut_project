@@ -13,8 +13,11 @@ import cv2
 from io import BytesIO
 from PIL import Image
 
+
+
 def distance(x1,y1,x2,y2):
     return((x1-x2)**2+(y2-y1)**2)
+
 def closest_line_seg_line_seg(p1, p2, p3, p4):
     p1=np.array(p1)
     p2=np.array(p2)
@@ -53,7 +56,34 @@ def closest_line_seg_line_seg(p1, p2, p3, p4):
     return d
                  
 
+def pixel_to_coordinates(px:int, py:int, xpix:int, ypix:int, xmin:float, xmax:float) -> (float,float):
+    """
+    px: position in pixels of the x
+    py: position in pixels of the y
+    xpix: number of pixels in x direction
+    ypix: number of pixels in y direction
+    xmin and xmax: range of the plot (real coordinates)
 
+    return:
+    x real coordinate
+    y real coordinate
+
+    ------------>                       
+    |           py                      Λ
+    |                                   | y
+    |                   ---->           |
+    |                                   |
+    |px                                 |
+    v                                   |         x
+                                        ----------->
+    """
+
+    xdelta = xmax - xmin
+
+    x = xmin + xdelta*py/ypix
+    y = xmin + xdelta*(xpix-px)/xpix
+
+    return x,y
 
 
 def Laser_callback(msg_toreceive:LaserScan):
@@ -94,10 +124,12 @@ def Laser_callback(msg_toreceive:LaserScan):
         np.savetxt("./coordinates/Y" + str(ni) + ".txt", Y)
     """
     #Plot
-    
+
     plt.scatter(X,Y,s=1.0)
-    plt.axis('equal')
-    plt.axis('off')
+    plt.axis("off")
+    plt.xlim(-5,5)
+    plt.ylim(-5,5)
+    plt.axis("scaled")
     plt.savefig("./imagens_mapa/mapa_inst.png")
     plt.close()
    
@@ -115,7 +147,7 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     linesP=linesP.reshape((len(linesP),4))
 
-    points=linesP.astype(np.float_)
+    points=linesP.astype(np.float)
 
     
     remove=[]
@@ -182,7 +214,17 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     landmark_mx = Float32MultiArray()
     landmark_mx.data=data.reshape(len(data)*4,1)
+    xdata=data.reshape(len(data)*4,1)
+    landmark_coord = []
     
+    for it in range(len(data/2)):
+        xx,yy = pixel_to_coordinates(xdata[2*it],xdata[2*it+1],len(img), len(img), -5, 5)
+        landmark_coord.append(xx)
+        landmark_coord.append(yy)
+        # Convert to coordinates
+
+    #print(landmark_coord)
+    landmark_mx.data = landmark_coord
 
     pub.publish(landmark_mx)
     #"""
