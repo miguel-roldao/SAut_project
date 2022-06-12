@@ -123,23 +123,37 @@ def Laser_callback(msg_toreceive:LaserScan):
         np.savetxt("./coordinates/X" + str(ni) + ".txt", X)
         np.savetxt("./coordinates/Y" + str(ni) + ".txt", Y)
     """
+    
+
+#---------------------------------------------------
+
     #Plot
 
-    plt.scatter(X,Y,s=1.0)
-    plt.axis("off")
-    plt.xlim(-5,5)
-    plt.ylim(-5,5)
-    plt.axis("scaled")
-    plt.savefig("./imagens_mapa/mapa_inst.png")
-    plt.close()
-   
-    
-    img = cv2.imread("./imagens_mapa/mapa_inst.png")
+    n_grid = 400            # resolution of the image    ----> n_grid x n_grid
+    laser_range = 5         # range of the laser that is plotted 
+    scale_f=int(n_grid/(2*laser_range))  # helping constant
+
+    img = np.uint8([[[255]*3]*n_grid]*n_grid)   #uint8 is the right format for cv2 apparently
+
+    print("rows:" + str(len(img)))
+    print("lines:" + str(len(img[0])))
+
+    for i, j in zip(X,Y):
+        if np.abs(i) < laser_range and np.abs(j) < laser_range:
+            img[n_grid//2 - int(j*scale_f)][int(i*scale_f) + n_grid//2] = [255,0,0]
+
+
+
+    #cv2.imwrite("./imagens_mapa/test_inst.png", img)   #uncomment to see the result
+
+
     #data = np.zeros((512, 512, 3), dtype=np.uint8)
+    print("rows:" + str(len(img)))
+    print("lines:" + str(len(img[0])))
 
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray,50,150,apertureSize = 3)
-
+    
     linesP = cv2.HoughLinesP(edges,1,10*np.pi/180,25,minLineLength= 12,maxLineGap = 8) # Probabilistic Hough Transform
     #linesP = cv2.HoughLines(edges,1,np.pi/180,20,None,0,0, 0,np.pi/180*5) # Probabilistic Hough Transform
 
@@ -198,8 +212,12 @@ def Laser_callback(msg_toreceive:LaserScan):
                 #print(len(remove))
 
     
-    data=np.delete(points,remove,axis=0)          
+    data=np.delete(points,remove,axis=0)   
+
     linesP=data.astype(np.int32)
+    print("kaka"+str(len(img)) + str(len(img[0])))
+    print(linesP)
+    print("kuku")   
     
     """
     if linesP is not None:
@@ -213,12 +231,15 @@ def Laser_callback(msg_toreceive:LaserScan):
     """
 
     landmark_mx = Float32MultiArray()
-    landmark_mx.data=data.reshape(len(data)*4,1)
-    xdata=data.reshape(len(data)*4,1)
+    landmark_mx.data=linesP.reshape(len(linesP)*4,1)
+    xdata=linesP.reshape(1,len(data)*4)[0]
     landmark_coord = []
+    print("kaka2")
+    print(xdata)
+    print("kuku2")   
     
     for it in range(len(data/2)):
-        xx,yy = pixel_to_coordinates(xdata[2*it],xdata[2*it+1],len(img), len(img), -5, 5)
+        (xx,yy) = pixel_to_coordinates(xdata[2*it],xdata[2*it+1],len(img), len(img), -3, 3)
         landmark_coord.append(xx)
         landmark_coord.append(yy)
         # Convert to coordinates
@@ -229,7 +250,8 @@ def Laser_callback(msg_toreceive:LaserScan):
     pub.publish(landmark_mx)
     #"""
     rospy.loginfo(time.time()-t0)
-    print(landmark_mx)
+    print("here")
+    print(landmark_coord)
     
     return 1
 
