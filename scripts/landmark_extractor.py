@@ -55,13 +55,13 @@ def closest_line_seg_line_seg(p1, p2, p3, p4):
     return d
                  
 
-def pixel_to_coordinates(px:int, py:int, xpix:int, ypix:int, xmin:float, xmax:float) -> (float,float):
+def pixel_to_coordinates(px:int, py:int, xpix:int, ypix:int, xmin:float, xmax:float, ymin = 0, ymax = 0) -> (float,float):
     """
     px: position in pixels of the x
     py: position in pixels of the y
     xpix: number of pixels in x direction
     ypix: number of pixels in y direction
-    xmin and xmax: range of the plot (real coordinates)
+    xmin, xmax, ymin and ymax: range of the plot (real coordinates)
 
     return:
     x real coordinate
@@ -77,12 +77,21 @@ def pixel_to_coordinates(px:int, py:int, xpix:int, ypix:int, xmin:float, xmax:fl
                                         ----------->
     """
 
-    xdelta = xmax - xmin
+    if ymin == 0:
+        ymin=xmin
+        ymax=xmax
 
-    x = xmin + xdelta*py/ypix
-    y = xmin + xdelta*(xpix-px)/xpix
+    #print(px)
+    #print(py)
+    xdelta = xmax - xmin
+    ydelta = ymax - ymin
+    mx = xdelta/ypix    
+    my = ydelta/xpix
+    x = py * mx + xmin
+    y = -px * my - ymin
 
     return x,y
+
 
 
 def Laser_callback(msg_toreceive:LaserScan):
@@ -143,7 +152,7 @@ def Laser_callback(msg_toreceive:LaserScan):
 
 
 
-    #cv2.imwrite("./imagens_mapa/test_inst.png", img)   #uncomment to see the result
+    cv2.imwrite("./imagens_mapa/map_inst.png", img)   #uncomment to see the result
 
 
     #data = np.zeros((512, 512, 3), dtype=np.uint8)
@@ -214,20 +223,20 @@ def Laser_callback(msg_toreceive:LaserScan):
     data=np.delete(points,remove,axis=0)   
 
     linesP=data.astype(np.int32)
-    print("kaka"+str(len(img)) + str(len(img[0])))
+    print("kaka")
     print(linesP)
     print("kuku")   
     
-    """
+    
     if linesP is not None:
-        for i in range(0, len(linesP)):
+        for i in range(1):#len(linesP)):
             l = linesP[i]
             cv2.line(img, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
             print("line "+ str(i) + " : x0=("+str(l[0])+","+str(l[1])+"), x1=("+str(l[2])+","+str(l[3])+")")
 
     cv2.imwrite("./houghlines/houghlines_inst.png",img)
     rospy.sleep(1)
-    """
+    
 
     landmark_mx = Float32MultiArray()
     landmark_mx.data=linesP.reshape(len(linesP)*4,1)
@@ -235,10 +244,10 @@ def Laser_callback(msg_toreceive:LaserScan):
     landmark_coord = []
     print("kaka2")
     print(xdata)
-    print("kuku2")   
+    print("kuku2")
     
-    for it in range(len(data/2)):
-        (xx,yy) = pixel_to_coordinates(xdata[2*it],xdata[2*it+1],len(img), len(img), -3, 3)
+    for it in range(len(xdata)//2):
+        (xx,yy) = pixel_to_coordinates(xdata[2*it],xdata[2*it+1],len(img), len(img), -laser_range, laser_range)
         landmark_coord.append(xx)
         landmark_coord.append(yy)
         # Convert to coordinates
