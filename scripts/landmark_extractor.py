@@ -4,7 +4,6 @@ from sympy import rem
 #from torch import atan2
 import rospy
 import numpy as np
-import matplotlib.pyplot as plt
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32MultiArray
 #from ransac_fit import fitar
