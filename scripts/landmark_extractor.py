@@ -77,7 +77,7 @@ def pixel_to_coordinates(px:int, py:int, xpix:int, ypix:int, xmin:float, xmax:fl
                                         ----------->
     """
 
-    if ymin == 0:
+    if ymin == ymax:
         ymin=xmin
         ymax=xmax
 
@@ -138,13 +138,10 @@ def Laser_callback(msg_toreceive:LaserScan):
     #Plot
 
     n_grid = 400            # resolution of the image    ----> n_grid x n_grid
-    laser_range = 5         # range of the laser that is plotted 
+    laser_range = 4         # range of the laser that is plotted 
     scale_f=int(n_grid/(2*laser_range))  # helping constant
 
     img = np.uint8([[[255]*3]*n_grid]*n_grid)   #uint8 is the right format for cv2 apparently
-
-    print("rows:" + str(len(img)))
-    print("lines:" + str(len(img[0])))
 
     for i, j in zip(X,Y):
         if np.abs(i) < laser_range and np.abs(j) < laser_range:
@@ -152,12 +149,10 @@ def Laser_callback(msg_toreceive:LaserScan):
 
 
 
-    cv2.imwrite("./imagens_mapa/map_inst.png", img)   #uncomment to see the result
+    #cv2.imwrite("./imagens_mapa/map_inst.png", img)   #uncomment to see the result
 
 
     #data = np.zeros((512, 512, 3), dtype=np.uint8)
-    print("rows:" + str(len(img)))
-    print("lines:" + str(len(img[0])))
 
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray,50,150,apertureSize = 3)
@@ -223,13 +218,10 @@ def Laser_callback(msg_toreceive:LaserScan):
     data=np.delete(points,remove,axis=0)   
 
     linesP=data.astype(np.int32)
-    print("kaka")
-    print(linesP)
-    print("kuku")   
     
     
     if linesP is not None:
-        for i in range(1):#len(linesP)):
+        for i in range(len(linesP)):
             l = linesP[i]
             cv2.line(img, (l[0], l[1]), (l[2], l[3]), (0,0,255), 1, cv2.LINE_AA)
             print("line "+ str(i) + " : x0=("+str(l[0])+","+str(l[1])+"), x1=("+str(l[2])+","+str(l[3])+")")
@@ -242,12 +234,10 @@ def Laser_callback(msg_toreceive:LaserScan):
     landmark_mx.data=linesP.reshape(len(linesP)*4,1)
     xdata=linesP.reshape(1,len(data)*4)[0]
     landmark_coord = []
-    print("kaka2")
     print(xdata)
-    print("kuku2")
     
     for it in range(len(xdata)//2):
-        (xx,yy) = pixel_to_coordinates(xdata[2*it],xdata[2*it+1],len(img), len(img), -laser_range, laser_range)
+        (xx,yy) = pixel_to_coordinates(xdata[2*it+1], xdata[2*it], len(img), len(img), -laser_range, laser_range)
         landmark_coord.append(xx)
         landmark_coord.append(yy)
         # Convert to coordinates
