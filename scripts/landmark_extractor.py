@@ -95,6 +95,8 @@ def pixel_to_coordinates(px:int, py:int, xpix:int, ypix:int, xmin:float, xmax:fl
 
 
 def laser_to_robot_frame(x:float,y:float, dx=0.2, dy=0.0) -> (float,float):
+    #Changes the coordinates of the landmarks to be in the reference frame of the robot
+
     """
     dx, dy: distances between laser and center of the robot wheel axis
     """
@@ -103,6 +105,25 @@ def laser_to_robot_frame(x:float,y:float, dx=0.2, dy=0.0) -> (float,float):
 
     return x + dx,y + dy
 
+
+def robot_to_world_frame(x:float, y:float, xrobot:float, yrobot:float, theta_robot:float) -> (float, float):
+
+    """
+    x, y coordinates of a point measured by the robot while with pose 
+    (xrobot, yrobot, theta_robot)
+    
+    """
+    #calculate the rotated coordinates of the point as if the robot had null orientation
+    
+    xrot = x*np.cos(theta_robot) - y*np.sin(theta_robot)
+    yrot = x*np.sin(theta_robot) + y*np.cos(theta_robot)
+
+    #then we just have to perform a translation
+
+    x = xrobot + xrot
+    y = yrobot + yrot
+    
+    return x,y
 
 
 def Laser_callback(msg_toreceive:LaserScan):
