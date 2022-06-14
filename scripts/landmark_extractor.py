@@ -94,6 +94,17 @@ def pixel_to_coordinates(px:int, py:int, xpix:int, ypix:int, xmin:float, xmax:fl
 
 
 
+def laser_to_robot_frame(x:float,y:float, dx=0.2, dy=0.0) -> (float,float):
+    """
+    dx, dy: distances between laser and center of the robot wheel axis
+    """
+    dx = 0.11
+    dy = 0.0
+
+    return x + dx,y + dy
+
+
+
 def Laser_callback(msg_toreceive:LaserScan):
 
     global t0
@@ -120,6 +131,7 @@ def Laser_callback(msg_toreceive:LaserScan):
     X=R*np.cos(theta_array)
     Y=R*np.sin(theta_array)
 
+
     #salto=3
     #for i in range(0,X.shape[0],salto):
         #Y[i]=np.sum(Y[i:i+salto])/salto
@@ -132,6 +144,11 @@ def Laser_callback(msg_toreceive:LaserScan):
         np.savetxt("./coordinates/Y" + str(ni) + ".txt", Y)
     """
     
+
+    #Convert to robot frame
+
+    X, Y = laser_to_robot_frame(X,Y)
+
 
 #---------------------------------------------------
 
@@ -219,7 +236,7 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     linesP=data.astype(np.int32)
     
-    
+    """
     if linesP is not None:
         for i in range(len(linesP)):
             l = linesP[i]
@@ -228,13 +245,13 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     cv2.imwrite("./houghlines/houghlines_inst.png",img)
     rospy.sleep(1)
-    
+    """
 
     landmark_mx = Float32MultiArray()
     landmark_mx.data=linesP.reshape(len(linesP)*4,1)
     xdata=linesP.reshape(1,len(data)*4)[0]
     landmark_coord = []
-    print(xdata)
+    #print(xdata)
     
     for it in range(len(xdata)//2):
         (xx,yy) = pixel_to_coordinates(xdata[2*it+1], xdata[2*it], len(img), len(img), -laser_range, laser_range)
@@ -247,9 +264,7 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     pub.publish(landmark_mx)
     #"""
-    rospy.loginfo(time.time()-t0)
-    print("here")
-    print(landmark_coord)
+    #rospy.loginfo(time.time()-t0)
     
     return 1
 
