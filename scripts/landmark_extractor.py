@@ -200,8 +200,11 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     #print(linesP)
 
-    linesP=linesP.reshape((len(linesP),4))
+    if linesP is None:
+        rospy.loginfo("No landmarks identified!")
+        return -1
 
+    linesP=linesP.reshape((len(linesP),4))
     points=linesP.astype(np.float)
 
     
