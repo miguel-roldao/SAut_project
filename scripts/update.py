@@ -11,7 +11,7 @@ import rospy
 from geometry_msgs.msg import PoseWithCovariance
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
-from std_msgs.msg import Float32MultiArray
+from std_msgs.msg import Float32MultiArray,MultiArrayDimension
 from shapely.geometry import LineString
 from numpy.linalg import inv
 
@@ -127,11 +127,12 @@ def Mahalanobis_recognition(measurementBar: np.array):
             deltaz = z_exp-zt
            
             d=deltaz.transpose().dot((Psi).dot(deltaz))
+            d=deltaz.transpose().dot(deltaz)
             mahalanobis_D.append(d)
                 
 
        
-        mahalanobis_D[N]=0.2
+        mahalanobis_D[N]=1
 
         j = np.min(mahalanobis_D)
         j = mahalanobis_D.index(j)
@@ -208,10 +209,12 @@ def Mahalanobis_recognition(measurementBar: np.array):
 
     state_vector=state_vector+previous
     matriz_covL=(np.eye(2*N+3) - previous2).dot(matriz_covL)
-    #print("STATEE" ,state_vector)
+    print("STATEE" ,state_vector)
     #print("MMMAtttri", matriz_covL)
     matriz_covL=np.array(matriz_covL, dtype=float)
-    #print("Det", np.linalg.det(matriz_covL))
+
+    
+    print("Det", np.linalg.det(matriz_covL))
 
     print("t2=" , time.time()-t)
 
@@ -494,11 +497,13 @@ def store_prediction_callback(msg_toreceive: PoseWithCovariance):
     positionx = msg_toreceive.pose.position.x
     positiony = msg_toreceive.pose.position.y
 
-    orientation_q = msg_toreceive.pose.pose.orientation
+    orientation_q = msg_toreceive.pose.orientation
     orientation_list = [orientation_q.x, orientation_q.y,
                         orientation_q.z, orientation_q.w]
     (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
-    matriz_covL[0:9] = msg_toreceive.covariance[0:9]
+    
+    cov=np.array(msg_toreceive.covariance[0:9]).reshape((3,3))
+    matriz_covL[0:3,0:3] = cov
 
     state_vector[0] = positionx
     state_vector[1] = positiony
@@ -511,6 +516,23 @@ def update_calculation_callback(msg_toreceive: Float32MultiArray):
     landmark_recebidos = np.array(msg_toreceive.data)
 
     Mahalanobis_recognition(landmark_recebidos)
+
+    msg_tosend=Float32MultiArray()
+
+    n=state_vector.size
+
+    
+    msg_tosend.layout.data_offset=n
+
+    print("n", n)
+    
+    cov=matriz_covL.flatten()
+    state=state_vector.flatten()
+    msg_tosend.data=np.hstack((state,cov))
+    print(np.array(msg_tosend.data).size)
+    pub_update.publish(msg_tosend)
+    #msg_tosend.layout.dim.si
+
     #update(landmark_recebidos)
 
     # landmark_recebidos=landmark_positions.reshape(int(landmark_positions.shape[0]*0.25),4)
@@ -551,8 +573,8 @@ if __name__ == '__main__':
     rospy.init_node("Belief_calculation")
     rospy.loginfo("Hello from belief_calculation")
 
-    pub = rospy.Publisher("/p3dx/belief_calculation",
-                          PoseWithCovariance, queue_size=10)
+    pub_update = rospy.Publisher("/p3dx/update",
+                          Float32MultiArray, queue_size=10)
 
     #sub_pose=rospy.Subscriber("/pioneer/pose_belief", PoseWithCovariance)
 
@@ -561,6 +583,6 @@ if __name__ == '__main__':
         "/p3dx/prediction_calculation", PoseWithCovariance, callback=store_prediction_callback)
 
     rospy.sleep(0.4)
-    sub_update = rospy.Subscriber(
+    sub_land = rospy.Subscriber(
         "/landmarks", Float32MultiArray, callback=update_calculation_callback)
     rospy.spin()  # keeps the node alive

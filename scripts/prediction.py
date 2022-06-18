@@ -3,17 +3,26 @@ import numpy as np
 import rospy
 from geometry_msgs.msg import PoseWithCovariance
 from nav_msgs.msg import Odometry
+from std_msgs.msg import Float32MultiArray
 from tf.transformations import euler_from_quaternion
 
 
-def store_update_callback(msg_toreceive: PoseWithCovariance):
+def store_update_callback(msg_toreceive: Float32MultiArray):
     global positionx, positiony, yaw,iniciado,matriz_cov
 
-    positionx=msg_toreceive.pose.pose.position.x
-    positiony=msg_toreceive.pose.pose.position.y
-    yaw=msg_toreceive.pose.orientation
-    matriz_cov=msg_toreceive.covariance
+    arr=np.array(msg_toreceive.data)
+    #n=msg_toreceive.layout.dim[0]
+    n=msg_toreceive.layout.data_offset
+    
 
+    positionx=arr[0]
+    positiony=arr[1]
+    yaw=arr[2]
+    cov=arr[n:].reshape(n,n)
+    cov=cov[0:3,0:3]
+    print(cov)
+    matriz_cov= cov
+    
 
 
 
@@ -99,20 +108,20 @@ if __name__== '__main__':
     global positionx, positiony, yaw,matriz_cov
 
 
-    matriz_cov=np.ones((3,3))
+    matriz_cov=np.zeros((3,3))
     iniciado=0
     positionx=0
     positiony=0
     theta=0
 
-    rospy.init_node("Belief_calculation")
-    rospy.loginfo("Hello from belief_calculation")
+    rospy.init_node("Update_calculation")
+    rospy.loginfo("Hello from update_calculation")
 
     #sub_pose=rospy.Subscriber("/pioneer/pose_belief", PoseWithCovariance)
         
     sub_odometry=rospy.Subscriber("/p3dx/odom", Odometry, callback = belief_calculation_callback)#callback means it call a function when it receives information
 
-    sub_update=rospy.Subscriber("/p3dx/update",PoseWithCovariance,callback=store_update_callback)
+    sub_update=rospy.Subscriber("/p3dx/update",Float32MultiArray,callback=store_update_callback)
     
     pub=rospy.Publisher("/p3dx/prediction_calculation", PoseWithCovariance,queue_size=10)
 
