@@ -15,209 +15,9 @@ from std_msgs.msg import Float32MultiArray,MultiArrayDimension
 from shapely.geometry import LineString
 from numpy.linalg import inv
 
-def change_dimension(n:int, matrix:np.array):
-    N=matrix.shape[0]+n
-    
-    if(n>0):
-        hold = matrix
-        matrix=np.zeros((N,N))
-        #np.fill_diagonal(matriz_covL,99)
-        #matriz_covL = np.full((N, N), 999)
-        matrix[0:N-n, 0:N-n] = hold
-    return matrix
-def change_NLandMark(n: int):
-
-    global matriz_covL, state_vector
-    #state_vector=np.vstack([state_vector,[[0],[0]]*n ])
-    N = matriz_covL.shape[0]+2*n
-
-    # print(matriz_covL)
-    #print(state_vector)
-    state_vector.resize(((N, 1)))
-    #print(state_vector)
-
-    if(n > 0):
-        hold = matriz_covL
-        matriz_covL=np.zeros((N,N))
-        np.fill_diagonal(matriz_covL,0.2)
-        #matriz_covL = np.full((N, N), 0.8)
-        matriz_covL[0:N-2*n, 0:N-2*n] = hold
-    if(n < 0):
-        matriz_covL = matriz_covL[0:N, 0:N]
-    #matriz_covL=np.block([ [matriz_covL], [np.full( (2*n,2*n), 999 )] ])
-    # print(matriz_covL)
 
 
-def Mahalanobis_recognition(measurementBar: np.array):
-    global matriz_covL, state_vector
-
-    t=time.time()
-    
-    N = (state_vector.size-3)/2
-    N = int(N)
-    mahalanobis_D = []
-    Qt = np.diag((1, 0.2))
-
-    measurementBar = measurementBar.reshape((measurementBar.size, 1))
-    #state_vector=np.vstack([ state_vector   ,     [[0],[0]]  ])
-    change_NLandMark(1)
-
-    H_i=[0]*50 #arrays no máximo
-    H_ji=[0]*50
-    zt_k=[0]*50
-    Psi_k=[0]*50
-    
-    zt_i=[0]*measurementBar.size
-    K_i=[0]*measurementBar.size
-    zm_i=[0]*measurementBar.size
-    # print(state_vector)
-   # print(state_vector.shape)
-    #print("Measure=",measurementBar)
-    #print("state", state_vector)
-
-    for i in range(0, measurementBar.size, 2):
-        # print(i)
-        state_vector[2 + 2*(N)+1] = state_vector[0]+measurementBar[i]
-        state_vector[2 + 2*(N)+2] = state_vector[1]+measurementBar[i+1]
-
-        z_exp = np.zeros((2, 1))
-        deltax = measurementBar[i]
-        deltay = measurementBar[i+1]
-        z_exp[0] = np.sqrt(deltax**2+deltay**2)
-        z_exp[1] = math.atan2(deltay, deltax)-state_vector[1]
-        zm_i[int(i/2)]=z_exp
-        
-
-        for j in range(0, N+1):
-
-            deltax = state_vector[2 + 2*(j)+1]-state_vector[0]
-            deltay = state_vector[2 + 2*(j)+2]-state_vector[1]
-
-            #print("X= " ,deltax)
-            q = float(deltax**2+deltay**2)
-            r = np.sqrt(q)
-
-            zt = np.zeros((2, 1))
-            zt[0] = r
-            zt[1] = math.atan2(deltay, deltax)-state_vector[2]
-
-            zt_k[j]=zt
-
-            F_1 = np.block([[eye(3)], [np.zeros((2, 3))]])
-            # print(F_1.shape)
-            # print(F_1)
-            F_2 = np.block([[np.zeros((3, 2))], [eye(2)]])
-            # print(F_2.shape)
-            F_xj = np.block([F_1, np.zeros((5, 2*(j+1)-2)),
-                            F_2, np.zeros((5, 2*(N+1)-2*(j+1)))])
-
-            d0 = deltax*r
-            d1 = deltay*r
-            h = np.block([[-d0, -d1, 0, d0, d1], [d1, -d0, -1, -d1, d0]])
-            #h=abs(h)
-            H = h.dot(F_xj)/q
-            H_i[j]=H
-
-            Psi = np.matmul(matriz_covL,H.transpose())
-            Psi = np.matmul(H,Psi) + Qt
-            Psi=np.array(Psi,dtype=np.float)
-            Psi=inv(Psi) #fica logo o inverso
-            Psi_k[j]=Psi
-                       
-            deltaz = z_exp-zt
-           
-            d=deltaz.transpose().dot((Psi).dot(deltaz))
-            d=deltaz.transpose().dot(deltaz)
-            mahalanobis_D.append(d)
-                
-
-       
-        mahalanobis_D[N]=1
-
-        j = np.min(mahalanobis_D)
-        j = mahalanobis_D.index(j)
-
-        N_ant=N
-        print(N)
-        N = int(max([N, j+1]))
-        print(N)
-        print("--")
-
-        
-        H=np.array(H_i[j])
-        Psi=np.array(Psi_k[j])
-
-        dn=N-N_ant
-        change_NLandMark(dn - 1)
-
-        hold=H
-        #print(hold.shape)
-        #H=np.zeros((2,hold.shape[1] - 2*(1-dn)))
-        H=H[0:2, 0:hold.shape[1] - 2*(1-dn)]
-        #H_i=[0]*100
-        H_ji[int(i/2)]=H
-
-        
-        K=H.transpose().dot(Psi)
-        
-        K=np.matmul(matriz_covL,K)
-        K_i[int(i/2)]=K
-        #print(K.shape)
-        zt_i[int(i/2)]=zt_k[j]
-
-    
-
-        mahalanobis_D = []
-
-        change_NLandMark(-(N-N_ant - 1))
-        change_NLandMark(N-N_ant )
-        print(time.time()-t)
-    
-    change_NLandMark(-1)
-    
-
-    ##Ultimas 2 linhas do pseudo codigo
-
-    print("t1=" , time.time()-t)
-    R=[0]*measurementBar.size
-    R2=[0]*measurementBar.size
-    previous=np.zeros((2,1))
-    #previous2=np.zeros((2,2))
-    previous2=0
-    
-    for i in range(0,int(measurementBar.size/2)):
-        K=np.array(K_i[i])
-        zm=np.array(zm_i[i])
-        zt=np.array(zt_i[i])
-        delta=zm-zt
-
-        R[i]=K.dot(delta)
-        H=np.array(H_ji[i])
-        R2[i]=K.dot(H)
-
-        if i>0:
-            #print("i", i)
-            dn=R2[i].shape[0]-R2[i-1].shape[0]
-            R2[i-1]=change_dimension(dn,R2[i-1])
-            previous2=R2[i]+R2[i-1]
-
-            #print("i", i)
-            dn=R[i].shape[0]-R[i-1].shape[0]
-            R[i-1]=np.vstack((R[i-1], np.zeros((dn,1))))
-            previous=R[i]+R[i-1]
-
-
-    state_vector=state_vector+previous
-    matriz_covL=(np.eye(2*N+3) - previous2).dot(matriz_covL)
-    print("STATEE" ,state_vector)
-    #print("MMMAtttri", matriz_covL)
-    matriz_covL=np.array(matriz_covL, dtype=float)
-
-    
-    print("Det", np.linalg.det(matriz_covL))
-
-    print("t2=" , time.time()-t)
-
+"""
 def update(measurementBar: np.array):
     global matriz_covL, state_vector
 
@@ -331,7 +131,7 @@ def recognition_step(array_antiga: np.array, array_recebida: np.array):
 
     global state_vector
 
-    """
+    
     Nmark_antiga=int(array_antiga.shape[0]/4)
     print(Nmark_antiga)
     array_antiga=array_antiga.reshape(Nmark_antiga,4)
@@ -350,7 +150,7 @@ def recognition_step(array_antiga: np.array, array_recebida: np.array):
             p4=((array_antiga[j][2],array_antiga[j][3]))
 
             line2 = LineString([p3, p4])
-   """
+   
 
     Npoints_antiga = int(array_antiga.size/2)
     Npoints_recebida = int(array_recebida.size/2)
@@ -489,6 +289,209 @@ def update_step(old_state, new_measure):
 
     return 0
 
+"""
+
+def change_dimension(n:int, matrix:np.array):
+    N=matrix.shape[0]+n
+    
+    if(n>0):
+        hold = matrix
+        matrix=np.zeros((N,N))
+        #np.fill_diagonal(matriz_covL,99)
+        #matriz_covL = np.full((N, N), 999)
+        matrix[0:N-n, 0:N-n] = hold
+    return matrix
+def change_NLandMark(n: int):
+
+    global matriz_covL, state_vector
+    #state_vector=np.vstack([state_vector,[[0],[0]]*n ])
+    N = matriz_covL.shape[0]+2*n
+
+    # print(matriz_covL)
+    #print(state_vector)
+    state_vector.resize(((N, 1)))
+    #print(state_vector)
+
+    if(n > 0):#parametros(o valor que se inicializa a covariancia duma landmark)
+        hold = matriz_covL
+        matriz_covL=np.zeros((N,N))
+        np.fill_diagonal(matriz_covL,0.2)
+        #matriz_covL = np.full((N, N), 0.8)
+        matriz_covL[0:N-2*n, 0:N-2*n] = hold
+    if(n < 0):
+        matriz_covL = matriz_covL[0:N, 0:N]
+    #matriz_covL=np.block([ [matriz_covL], [np.full( (2*n,2*n), 999 )] ])
+    # print(matriz_covL)
+
+
+def Mahalanobis_recognition(measurementBar: np.array): #pg257
+    global matriz_covL, state_vector
+
+    t=time.time()
+    
+    N = (state_vector.size-3)/2
+    N = int(N)
+    mahalanobis_D = []
+    Qt = np.diag((10, 0.2))
+
+    measurementBar = measurementBar.reshape((measurementBar.size, 1))
+    #state_vector=np.vstack([ state_vector   ,     [[0],[0]]  ])
+    change_NLandMark(1)
+
+    H_i=[0]*50 #arrays no máximo
+    H_ji=[0]*50
+    zt_k=[0]*50
+    Psi_k=[0]*50
+    
+    zt_i=[0]*measurementBar.size
+    K_i=[0]*measurementBar.size
+    zm_i=[0]*measurementBar.size
+    # print(state_vector)
+   # print(state_vector.shape)
+    #print("Measure=",measurementBar)
+    #print("state", state_vector)
+
+    for i in range(0, measurementBar.size, 2):
+        # print(i)
+        state_vector[2 + 2*(N)+1] = state_vector[0]+measurementBar[i]
+        state_vector[2 + 2*(N)+2] = state_vector[1]+measurementBar[i+1]
+
+        z_exp = np.zeros((2, 1))
+        deltax = measurementBar[i]
+        deltay = measurementBar[i+1]
+        z_exp[0] = np.sqrt(deltax**2+deltay**2)
+        z_exp[1] = math.atan2(deltay, deltax)-state_vector[2]
+        zm_i[int(i/2)]=z_exp
+        
+
+        for j in range(0, N+1):
+
+            deltax = state_vector[2 + 2*(j)+1]-state_vector[0]
+            deltay = state_vector[2 + 2*(j)+2]-state_vector[1]
+
+            #print("X= " ,deltax)
+            q = float(deltax**2+deltay**2)
+            r = np.sqrt(q)
+
+            zt = np.zeros((2, 1))
+            zt[0] = r
+            zt[1] = math.atan2(deltay, deltax)-state_vector[2]
+
+            zt_k[j]=zt
+
+            F_1 = np.block([[eye(3)], [np.zeros((2, 3))]])
+            # print(F_1.shape)
+            # print(F_1)
+            F_2 = np.block([[np.zeros((3, 2))], [eye(2)]])
+            # print(F_2.shape)
+            F_xj = np.block([F_1, np.zeros((5, 2*(j+1)-2)),
+                            F_2, np.zeros((5, 2*(N+1)-2*(j+1)))])
+
+            d0 = deltax*r
+            d1 = deltay*r
+            h = np.block([[-d0, -d1, 0, d0, d1], [d1, -d0, -1, -d1, d0]])
+            #h=abs(h)
+            H = h.dot(F_xj)/q
+            H_i[j]=H
+
+            Psi = np.matmul(matriz_covL,H.transpose())
+            Psi = np.matmul(H,Psi) + Qt
+            Psi=np.array(Psi,dtype=np.float)
+            Psi=inv(Psi) #fica logo o inverso
+            Psi_k[j]=Psi
+                       
+            deltaz = z_exp-zt
+           
+            d=deltaz.transpose().dot((Psi).dot(deltaz))
+            #d=deltaz.transpose().dot(deltaz)
+            mahalanobis_D.append(d)
+                
+
+       
+        mahalanobis_D[N]=0.2 #parametro
+
+        j = np.min(mahalanobis_D)
+        j = mahalanobis_D.index(j)
+
+        N_ant=N
+        N = int(max([N, j+1]))
+        
+
+        
+        H=np.array(H_i[j])
+        Psi=np.array(Psi_k[j])
+
+        dn=N-N_ant
+        change_NLandMark(dn - 1)
+
+        hold=H
+        #print(hold.shape)
+        #H=np.zeros((2,hold.shape[1] - 2*(1-dn)))
+        H=H[0:2, 0:hold.shape[1] - 2*(1-dn)]
+        #H_i=[0]*100
+        H_ji[int(i/2)]=H
+
+        
+        K=H.transpose().dot(Psi)
+        
+        K=np.matmul(matriz_covL,K)
+        K_i[int(i/2)]=K
+        #print(K.shape)
+        zt_i[int(i/2)]=zt_k[j]
+
+    
+
+        mahalanobis_D = []
+
+        #change_NLandMark(-(N-N_ant - 1))
+        #change_NLandMark(N-N_ant )
+        change_NLandMark(1)
+        print(time.time()-t)
+    
+    change_NLandMark(-1)
+    
+
+    ##Ultimas 2 linhas do pseudo codigo
+
+    #print("t1=" , time.time()-t)
+    R=[0]*measurementBar.size
+    R2=[0]*measurementBar.size
+    previous=np.zeros((2,1))
+    #previous2=np.zeros((2,2))
+    previous2=0
+    
+    for i in range(0,int(measurementBar.size/2)):
+        K=np.array(K_i[i])
+        zm=np.array(zm_i[i])
+        zt=np.array(zt_i[i])
+        delta=zm-zt
+
+        R[i]=K.dot(delta)
+        H=np.array(H_ji[i])
+        R2[i]=K.dot(H)
+
+        if i>0:
+            #print("i", i)
+            dn=R2[i].shape[0]-R2[i-1].shape[0]
+            R2[i-1]=change_dimension(dn,R2[i-1])
+            previous2=R2[i]+R2[i-1]
+
+            #print("i", i)
+            dn=R[i].shape[0]-R[i-1].shape[0]
+            R[i-1]=np.vstack((R[i-1], np.zeros((dn,1))))
+            previous=R[i]+R[i-1]
+
+
+    state_vector=state_vector+previous
+    matriz_covL=(np.eye(2*N+3) - previous2).dot(matriz_covL)
+    print("STATEE" ,state_vector.shape)
+    #print("MMMAtttri", matriz_covL)
+    matriz_covL=np.array(matriz_covL, dtype=float)
+
+    
+    print("Det", np.linalg.det(matriz_covL))
+
+    #print("t2=" , time.time()-t)
 
 def store_prediction_callback(msg_toreceive: PoseWithCovariance):
     global positionx, positiony, yaw, matriz_covL
@@ -530,31 +533,11 @@ def update_calculation_callback(msg_toreceive: Float32MultiArray):
     state=state_vector.flatten()
     msg_tosend.data=np.hstack((state,cov))
     print(np.array(msg_tosend.data).size)
+    
+    
     pub_update.publish(msg_tosend)
-    #msg_tosend.layout.dim.si
 
-    #update(landmark_recebidos)
-
-    # landmark_recebidos=landmark_positions.reshape(int(landmark_positions.shape[0]*0.25),4)
-
-    # measure=recognition_step(landmark_positions,landmark_recebidos)
-
-    # update_step(landmark_positions,measure)
-    # ---->Transformar tudo em coordenadas cartesianas, as landmarks tem de ter apenas uma coluna
-
-    # landmark_novos=landmark_positions.append(landmark_recebidos)## e substituir com os novos fazendo correspond
-
-    # landmark_positions=landmark_positions.append(landmark_recebidos)##apenas os novos
-    # analyse
-    #delta = landmark_positions-landmark_novos
-
-    # q=delta.transpose().dot(delta)
-
-    # for i in range(0,landmark_novos.shape[0]):
-    # z_previsto=np.array([ [math.sqrt(q[i])] , [math.atan2(delta[i])]]
-
-    # rospy.loginfo(landmark_positions)
-
+    
 
 if __name__ == '__main__':
     global positionx, positiony, yaw, matriz_covL, landmark_positions
@@ -573,16 +556,18 @@ if __name__ == '__main__':
     rospy.init_node("Belief_calculation")
     rospy.loginfo("Hello from belief_calculation")
 
-    pub_update = rospy.Publisher("/p3dx/update",
-                          Float32MultiArray, queue_size=10)
-
+    
     #sub_pose=rospy.Subscriber("/pioneer/pose_belief", PoseWithCovariance)
 
     # callback means it call a function when it receives information
     sub_prediction = rospy.Subscriber(
         "/p3dx/prediction_calculation", PoseWithCovariance, callback=store_prediction_callback)
 
-    rospy.sleep(0.4)
+    rospy.sleep(1)
     sub_land = rospy.Subscriber(
         "/landmarks", Float32MultiArray, callback=update_calculation_callback)
+
+    pub_update = rospy.Publisher("/p3dx/update",
+                          Float32MultiArray, queue_size=10)
+
     rospy.spin()  # keeps the node alive
