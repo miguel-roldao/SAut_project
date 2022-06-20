@@ -183,11 +183,13 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     for i, j in zip(X,Y):
         if np.abs(i) < laser_range and np.abs(j) < laser_range:
-            img[n_grid//2 - int(j*scale_f)][int(i*scale_f) + n_grid//2] = [255,0,0]
+            for k in range(-2,2):
+                for l in range(-2,2):
+                    img[n_grid//2 - int(j*scale_f) + k][int(i*scale_f) + n_grid//2 + l] = [255,0,0]
 
 
 
-    #cv2.imwrite("./imagens_mapa/map_inst.png", img)   #uncomment to see the result
+    cv2.imwrite("./imagens_mapa/map_inst.png", img)   #uncomment to see the result
 
 
     #data = np.zeros((512, 512, 3), dtype=np.uint8)
@@ -195,7 +197,7 @@ def Laser_callback(msg_toreceive:LaserScan):
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     edges = cv2.Canny(gray,50,150,apertureSize = 3)
     
-    linesP = cv2.HoughLinesP(edges,1,10*np.pi/180,25,minLineLength= 12,maxLineGap = 8) # Probabilistic Hough Transform
+    linesP = cv2.HoughLinesP(edges,1,1*np.pi/180,25,minLineLength= 42,maxLineGap = 28) # Probabilistic Hough Transform
     #linesP = cv2.HoughLines(edges,1,np.pi/180,20,None,0,0, 0,np.pi/180*5) # Probabilistic Hough Transform
 
     #print(linesP)
@@ -260,7 +262,7 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     linesP=data.astype(np.int32)
     
-    """
+    
     if linesP is not None:
         for i in range(len(linesP)):
             l = linesP[i]
@@ -269,7 +271,7 @@ def Laser_callback(msg_toreceive:LaserScan):
 
     cv2.imwrite("./houghlines/houghlines_inst.png",img)
     rospy.sleep(1)
-    """
+    
 
     landmark_mx = Float32MultiArray()
     landmark_mx.data=linesP.reshape(len(linesP)*4,1)

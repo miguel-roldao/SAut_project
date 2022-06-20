@@ -6,13 +6,13 @@ from matplotlib.pyplot import axis
 import numpy as np
 import scipy
 from sympy import eye
-from torch import block_diag
+#from torch import block_diag
 import rospy
 from geometry_msgs.msg import PoseWithCovariance
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 from std_msgs.msg import Float32MultiArray,MultiArrayDimension
-from shapely.geometry import LineString
+#from shapely.geometry import LineString
 from numpy.linalg import inv
 
 
@@ -291,6 +291,29 @@ def update_step(old_state, new_measure):
 
 """
 
+def robot_to_world_frame(x:float, y:float, xrobot:float, yrobot:float, theta_robot:float) -> (float, float):
+
+    """
+    x, y coordinates of a point measured by the robot while with pose 
+    (xrobot, yrobot, theta_robot)
+    
+    """
+    #calculate the rotated coordinates of the point as if the robot had null orientation
+    
+    x = x - xrobot
+    y = y - yrobot
+
+    xrot = x*np.cos(theta_robot) - y*np.sin(theta_robot)
+    yrot = x*np.sin(theta_robot) + y*np.cos(theta_robot)
+
+    #then we just have to perform a translation
+
+    x = xrobot + xrot
+    y = yrobot + yrot
+    
+    return x,y
+
+
 def change_dimension(n:int, matrix:np.array):
     N=matrix.shape[0]+n
     
@@ -408,7 +431,7 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
                 
 
        
-        mahalanobis_D[N]=0.2 #parametro
+        mahalanobis_D[N] = 0.1 #parametro
 
         j = np.min(mahalanobis_D)
         j = mahalanobis_D.index(j)
