@@ -5,14 +5,16 @@ from cv2 import Mahalanobis, sqrt
 from matplotlib.pyplot import axis
 import numpy as np
 import scipy
+from sqlalchemy import false
 from sympy import eye
-#from torch import block_diag
+from torch import block_diag
+from landmark_extractor import robot_to_world_frame
 import rospy
 from geometry_msgs.msg import PoseWithCovariance
 from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 from std_msgs.msg import Float32MultiArray,MultiArrayDimension
-#from shapely.geometry import LineString
+from shapely.geometry import LineString
 from numpy.linalg import inv
 
 
@@ -291,29 +293,6 @@ def update_step(old_state, new_measure):
 
 """
 
-def robot_to_world_frame(x:float, y:float, xrobot:float, yrobot:float, theta_robot:float) -> (float, float):
-
-    """
-    x, y coordinates of a point measured by the robot while with pose 
-    (xrobot, yrobot, theta_robot)
-    
-    """
-    #calculate the rotated coordinates of the point as if the robot had null orientation
-    
-    x = x - xrobot
-    y = y - yrobot
-
-    xrot = x*np.cos(theta_robot) - y*np.sin(theta_robot)
-    yrot = x*np.sin(theta_robot) + y*np.cos(theta_robot)
-
-    #then we just have to perform a translation
-
-    x = xrobot + xrot
-    y = yrobot + yrot
-    
-    return x,y
-
-
 def change_dimension(n:int, matrix:np.array):
     N=matrix.shape[0]+n
     
@@ -332,7 +311,7 @@ def change_NLandMark(n: int):
 
     # print(matriz_covL)
     #print(state_vector)
-    state_vector.resize(((N, 1)))
+    state_vector.resize(((N, 1)),refcheck=False)
     #print(state_vector)
 
     if(n > 0):#parametros(o valor que se inicializa a covariancia duma landmark)
@@ -348,14 +327,16 @@ def change_NLandMark(n: int):
 
 
 def Mahalanobis_recognition(measurementBar: np.array): #pg257
-    global matriz_covL, state_vector
+    global matriz_covL, state_vector,t
 
-    t=time.time()
+
+ 
+        
     
     N = (state_vector.size-3)/2
     N = int(N)
     mahalanobis_D = []
-    Qt = np.diag((10, 0.2))
+    Qt = np.diag((1, 0.2))
 
     measurementBar = measurementBar.reshape((measurementBar.size, 1))
     #state_vector=np.vstack([ state_vector   ,     [[0],[0]]  ])
@@ -370,22 +351,46 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
     K_i=[0]*measurementBar.size
     zm_i=[0]*measurementBar.size
     # print(state_vector)
-   # print(state_vector.shape)
+# print(state_vector.shape)
     #print("Measure=",measurementBar)
     #print("state", state_vector)
 
     for i in range(0, measurementBar.size, 2):
         # print(i)
-        state_vector[2 + 2*(N)+1] = state_vector[0]+measurementBar[i]
-        state_vector[2 + 2*(N)+2] = state_vector[1]+measurementBar[i+1]
-
+        
+        
         z_exp = np.zeros((2, 1))
         deltax = measurementBar[i]
         deltay = measurementBar[i+1]
         z_exp[0] = np.sqrt(deltax**2+deltay**2)
-        z_exp[1] = math.atan2(deltay, deltax)-state_vector[2]
-        zm_i[int(i/2)]=z_exp
         
+        
+        z_exp[1] = math.atan2(deltay, deltax)#-state_vector[2]
+
+        ang = math.atan2(deltay, deltax)+state_vector[2]
+
+        print("YAW", state_vector[2])
+        print("ANGULO MEDIDA", math.atan2(deltay, deltax))
+        print("SOMA, " ,ang)
+        ang=np.float(ang)
+        zm_i[int(i/2)]=z_exp
+
+        #print("Yaw", state_vector[2])
+        #print("z", z_exp[1])
+        ##angulo=(state_vector[2]+z_exp[1])
+        #angulo=np.float(angulo[0])
+        #print("Ângulo",angulo)  
+        #print(state_vector)     
+
+        state_vector[2 + 2*(N)+1] = state_vector[0] + z_exp[0]*np.cos(ang)
+        #measurementBar[i]*np.cos(angulo) - measurementBar[i+1]*np.sin(angulo)
+        state_vector[2 + 2*(N)+2] = state_vector[1]+ z_exp[0]*np.sin(ang)
+
+        #state_vector[2 + 2*(N)+1], state_vector[2 + 2*(N)+2]= robot_to_world_frame(measurementBar[i], measurementBar[i+1], state_vector[0],state_vector[1], state_vector[2])
+        
+
+        state_vector
+        #measurementBar[i]*np.sin(angulo) + measurementBar[i+1]*np.cos(angulo)
 
         for j in range(0, N+1):
 
@@ -400,6 +405,8 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
             zt[0] = r
             zt[1] = math.atan2(deltay, deltax)-state_vector[2]
 
+            
+
             zt_k[j]=zt
 
             F_1 = np.block([[eye(3)], [np.zeros((2, 3))]])
@@ -412,7 +419,8 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
 
             d0 = deltax*r
             d1 = deltay*r
-            h = np.block([[-d0, -d1, 0, d0, d1], [d1, -d0, -1, -d1, d0]])
+            #h = np.block([[-d0, -d1, 0, d0, d1], [d1, -d0, -1, -d1, d0]])
+            h = np.block([[d0, -d1, 0, -d0, d1], [d1, d0, -1, -d1, -d0]])
             #h=abs(h)
             H = h.dot(F_xj)/q
             H_i[j]=H
@@ -422,16 +430,27 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
             Psi=np.array(Psi,dtype=np.float)
             Psi=inv(Psi) #fica logo o inverso
             Psi_k[j]=Psi
-                       
+                    
             deltaz = z_exp-zt
-           
+
+            """"
+            if(np.abs(np.cos(z_exp[1])-np.cos(zt[1])) <0.1 and np.abs(np.sin(z_exp[1])-np.sin(zt[1])) <0.1 ):
+                #change_NLandMark(-1)
+                #print("Saiu")
+                #print(deltaz)
+                print("AAAAAAAAAAAA", deltaz)
+                deltaz[1][0]=0
+                print("BBBBBBBBBBBB", deltaz)
+                #return 1
+            """
+
             d=deltaz.transpose().dot((Psi).dot(deltaz))
             #d=deltaz.transpose().dot(deltaz)
             mahalanobis_D.append(d)
                 
 
-       
-        mahalanobis_D[N] = 0.1 #parametro
+    
+        mahalanobis_D[N]=0.2 #parametro
 
         j = np.min(mahalanobis_D)
         j = mahalanobis_D.index(j)
@@ -514,6 +533,7 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
     
     print("Det", np.linalg.det(matriz_covL))
 
+
     #print("t2=" , time.time()-t)
 
 def store_prediction_callback(msg_toreceive: PoseWithCovariance):
@@ -537,35 +557,39 @@ def store_prediction_callback(msg_toreceive: PoseWithCovariance):
 
 
 def update_calculation_callback(msg_toreceive: Float32MultiArray):
-    global landmark_positions
+    global t
 
-    landmark_recebidos = np.array(msg_toreceive.data)
+    if (time.time()-t >4):
+        global landmark_positions
 
-    Mahalanobis_recognition(landmark_recebidos)
+        landmark_recebidos = np.array(msg_toreceive.data)
 
-    msg_tosend=Float32MultiArray()
+        Mahalanobis_recognition(landmark_recebidos)
 
-    n=state_vector.size
+        msg_tosend=Float32MultiArray()
 
-    
-    msg_tosend.layout.data_offset=n
+        n=state_vector.size
 
-    print("n", n)
-    
-    cov=matriz_covL.flatten()
-    state=state_vector.flatten()
-    msg_tosend.data=np.hstack((state,cov))
-    print(np.array(msg_tosend.data).size)
-    
-    
-    pub_update.publish(msg_tosend)
+        
+        msg_tosend.layout.data_offset=n
+
+        print("n", n)
+        
+        cov=matriz_covL.flatten()
+        state=state_vector.flatten()
+        msg_tosend.data=np.hstack((state,cov))
+        print(np.array(msg_tosend.data).size)
+        
+        pub_update.publish(msg_tosend)
+        t=time.time()
 
     
 
 if __name__ == '__main__':
     global positionx, positiony, yaw, matriz_covL, landmark_positions
-    global state_vector
+    global state_vector,t
 
+    t=time.time()
     matriz_covL = np.full((3, 3),0.)
     iniciado = 0
     positionx = 0
