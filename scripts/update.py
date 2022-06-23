@@ -7,7 +7,7 @@ import numpy as np
 import scipy
 from sqlalchemy import false
 from sympy import eye
-from torch import block_diag
+#from torch import block_diag
 from landmark_extractor import robot_to_world_frame
 import rospy
 from geometry_msgs.msg import PoseWithCovariance
@@ -363,8 +363,6 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
         deltax = measurementBar[i]
         deltay = measurementBar[i+1]
         z_exp[0] = np.sqrt(deltax**2+deltay**2)
-        
-        
         z_exp[1] = math.atan2(deltay, deltax)#-state_vector[2]
 
         ang = math.atan2(deltay, deltax)+state_vector[2]
