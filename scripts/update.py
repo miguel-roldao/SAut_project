@@ -340,12 +340,14 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
 
     #correção desfasamento
     yaw=np.float(state_vector[2])
-    deltaT=t_prediction-t_landmark
+    deltaT=time.time()-t_landmark
     #state_vector[0] = state_vector[0] + vel_lin*deltaT*np.cos(yaw)
     #state_vector[1] = state_vector[1] + vel_lin*deltaT*np.sin(state_vector[2][0])
-    state_vector[2] = state_vector[2] - vel_ang*deltaT
+    print("thetaB, ", state_vector[2][0])
+    #state_vector[2][0] = state_vector[2][0] - vel_ang*deltaT
     print("dT", deltaT)
     print("VANg", vel_ang)
+    print("theta, ", state_vector[2][0])
         
     
     N = (state_vector.size-3)/2
@@ -384,7 +386,9 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
         
         z_exp[1] = math.atan2(deltay, deltax)#-state_vector[2]
 
-        ang = math.atan2(deltay, deltax)+state_vector[2]
+        ang = math.atan2(deltay, deltax)+state_vector[2][0]
+        #ang=np.arctan(np.tan(ang))
+
 
         print("YAW", state_vector[2])
         print("ANGULO MEDIDA", math.atan2(deltay, deltax))
@@ -400,6 +404,7 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
         #print(state_vector)     
 
         plt.scatter(z_exp[0]*np.cos(ang),z_exp[0]*np.sin(ang))
+        #plt.scatter(z_exp[0]*np.cos(z_exp[1]),z_exp[0]*np.sin(z_exp[1]))
         plt.savefig("./Mahla/imagem" + str(i))
         #plt.close()
 
@@ -480,7 +485,7 @@ def Mahalanobis_recognition(measurementBar: np.array): #pg257
                 
 
     
-        mahalanobis_D[N]=0.2 #parametro
+        mahalanobis_D[N]=0.3 #+vel_ang*2+vel_lin*2 #parametro
 
         j = np.min(mahalanobis_D)
         j = mahalanobis_D.index(j)
@@ -622,7 +627,7 @@ def update_calculation_callback(msg_toreceive: Float32MultiArray):
     #print(msg_toreceive.data)
     #msg_toreceive.data=msg_toreceive.data[:-1]
     #print(msg_toreceive.data)
-    if (time.time()-t >2):
+    if (time.time()-t >0):
         global landmark_positions
 
         landmark_recebidos = np.array(msg_toreceive.data)
@@ -642,8 +647,9 @@ def update_calculation_callback(msg_toreceive: Float32MultiArray):
         state=state_vector.flatten()
         msg_tosend.data=np.hstack((state,cov))
         print(np.array(msg_tosend.data).size)
-        
+        rospy.sleep(0.5)
         pub_update.publish(msg_tosend)
+        #rospy.sleep(1)
         t=time.time()
         
 
@@ -677,17 +683,17 @@ if __name__ == '__main__':
 
     # callback means it call a function when it receives information
     sub_prediction = rospy.Subscriber(
-        "/p3dx/prediction_calculation", PoseWithCovariance, callback=store_prediction_callback)
+        "/p3dx/prediction_calculation", PoseWithCovariance, callback=store_prediction_callback,queue_size=10)
     
 
-    rospy.sleep(1)
+    #rospy.sleep(1)
     sub_land = rospy.Subscriber(
         "/landmarks", Float32MultiArray, callback=update_calculation_callback)
 
-    sub_time = rospy.Subscriber(
-        "/time_land", Float64, callback=store_t_landmark)
+    #sub_time = rospy.Subscriber(
+       # "/time_land", Float64, callback=store_t_landmark)
 
     pub_update = rospy.Publisher("/p3dx/update",
-                          Float32MultiArray, queue_size=1)
+                          Float32MultiArray, queue_size=10)
 
     rospy.spin()  # keeps the node alive

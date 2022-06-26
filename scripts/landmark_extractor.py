@@ -1,4 +1,5 @@
 import math
+from pickle import FALSE
 from turtle import distance
 from sympy import rem
 #from torch import atan2
@@ -6,11 +7,13 @@ import rospy
 import numpy as np
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32MultiArray,Float64
+from tf.transformations import euler_from_quaternion
 #from ransac_fit import fitar
 import time
 import cv2
 from io import BytesIO
 from PIL import Image
+from geometry_msgs.msg import PoseWithCovariance
 
 
 
@@ -100,9 +103,13 @@ def laser_to_robot_frame(x:float,y:float, dx=0.2, dy=0.0) -> (float,float):
     """
     dx, dy: distances between laser and center of the robot wheel axis
     """
-    dx = 0.11
-    dy = 0.0
+    dx = 0.12
+    dy = 0.
 
+    #(roll, pitch, yaw2) = euler_from_quaternion ([0. , 0., 0., 1.0])
+    #print("Angulos")
+    #print(roll,pitch,yaw2)
+    #dx=0
     return x + dx,y + dy
 
 
@@ -143,18 +150,18 @@ def robot_to_world_frame(x:float, y:float, xrobot:float, yrobot:float, theta_rob
 def Laser_callback(msg_toreceive:LaserScan):
 
     
-    global t0
+    global t0,s2
     global ni
     t=time.time()
-
-    if (time.time()-t0 >2):
+    #print("s2 callback Laser", s2)
+    if (s2 and t-t0>0.8):
         
 
         samples=len(msg_toreceive.ranges)
 
         R=np.array(msg_toreceive.ranges)
         #print(R)
-        salto=1
+        salto=3
         for i in range(0,len(R),salto):
             R[i]=np.sum(R[i:i+salto])/(salto)
 
@@ -192,7 +199,7 @@ def Laser_callback(msg_toreceive:LaserScan):
 
         #Plot
 
-        n_grid = 400            # resolution of the image    ----> n_grid x n_grid
+        n_grid = 1200            # resolution of the image    ----> n_grid x n_grid
         laser_range = 4         # range of the laser that is plotted 
         scale_f=int(n_grid/(2*laser_range))  # helping constant
 
@@ -200,8 +207,8 @@ def Laser_callback(msg_toreceive:LaserScan):
 
         for i, j in zip(X,Y):
             if np.abs(i) < laser_range and np.abs(j) < laser_range:
-                for k in range(-2,2):
-                    for l in range(-2,2):
+                for k in range(-1,1):
+                    for l in range(-1,1):
                         img[n_grid//2 - int(j*scale_f) + k][int(i*scale_f) + n_grid//2 + l] = [255,0,0]
 
 
@@ -222,6 +229,8 @@ def Laser_callback(msg_toreceive:LaserScan):
         if linesP is None:
             rospy.loginfo("No landmarks identified!")
             t0=time.time()
+            s2=False
+            pub_noLandmarks.publish(0)
             return -1
 
         linesP=linesP.reshape((len(linesP),4))
@@ -306,21 +315,29 @@ def Laser_callback(msg_toreceive:LaserScan):
         #print(landmark_coord)
         landmark_mx.data = landmark_coord
         #landmark_mx.data.append(t)
-        print("Time, ", t)
-        pub_time.publish(t)
+        print("Time, ", time.time()-t)
+        #pub_time.publish(t)
         #landmark_mx.layout.data_offset=t
-        rospy.sleep(0.01)
+        #rospy.sleep(0.02)
 
         pub.publish(landmark_mx)
+        s2=False
         
 
         t0=time.time()
         #rospy.sleep(2)
         #"""
         #rospy.loginfo(time.time()-t0)
-        
+    elif(t-t0<0.8 and s2):
+        pub_noLandmarks.publish(0) 
+        s2=False
     return 1
 
+def cheks2(a):
+    global s2
+    print("S2" ,s2)
+    
+    s2=True
 
 if __name__== '__main__':
     rospy.init_node("Display_node")
@@ -328,13 +345,21 @@ if __name__== '__main__':
 
     global t0
     global ni
+    global s2
+    s2=False
     ni=0
     t0=time.time()
 
-    sub=rospy.Subscriber("/p3dx/laser/scan",LaserScan,callback=Laser_callback)
+    sub=rospy.Subscriber("/p3dx/laser/scan",LaserScan,callback=Laser_callback,queue_size=1)
+    sub_prediction_check=rospy.Subscriber(
+        "/p3dx/prediction_calculation", PoseWithCovariance, callback=cheks2,queue_size=1)
 
-    pub=rospy.Publisher("/landmarks",Float32MultiArray,queue_size=1)
-    pub_time=rospy.Publisher("/time_land",Float64,queue_size=1)
+    pub=rospy.Publisher("/landmarks",Float32MultiArray,queue_size=10)
+    pub_time=rospy.Publisher("/time_land",Float64,queue_size=10)
+
+
+    pub_noLandmarks=rospy.Publisher("/noLand",Float64,queue_size=10)
+
 
     #sub=rospy.Subscriber("/scan",LaserScan,callback=ransac_callback)
     rospy.spin()
